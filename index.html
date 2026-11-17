@@ -2,53 +2,68 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2.5D Roguelike Dungeon Crawler</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2.5D Mobile Roguelike Dungeon Crawler</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: none; }
         body { background: #0a0a0c; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
         #game-container { position: relative; width: 100vw; height: 100vh; }
-        canvas { display: block; }
+        canvas { display: block; width: 100vw; height: 100vh; }
         
         /* HUD Overlay */
         #hud {
-            position: absolute; top: 20px; left: 20px; pointer-events: none;
-            display: flex; flex-direction: column; gap: 10px;
-            background: rgba(15, 15, 20, 0.75); padding: 15px 20px;
-            border: 1px solid #333; border-radius: 8px; backdrop-filter: blur(4px);
+            position: absolute; top: 15px; left: 15px; right: 15px; pointer-events: none;
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(15, 15, 20, 0.8); padding: 12px 16px;
+            border: 1px solid #333; border-radius: 10px; backdrop-filter: blur(4px);
         }
-        .stat-row { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: bold; }
-        .bar-container { width: 160px; height: 14px; background: #222; border-radius: 4px; overflow: hidden; border: 1px solid #444; }
+        .hud-group { display: flex; flex-direction: column; gap: 4px; }
+        .stat-row { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: bold; }
+        .bar-container { width: 120px; height: 12px; background: #222; border-radius: 4px; overflow: hidden; border: 1px solid #444; }
         #hp-bar { width: 100%; height: 100%; background: linear-gradient(90deg, #b91c1c, #ef4444); transition: width 0.15s; }
-        .floor-badge { color: #fbbf24; font-size: 18px; letter-spacing: 1px; }
-        
-        #controls-hint {
-            position: absolute; bottom: 20px; left: 20px; pointer-events: none;
-            color: #888; font-size: 13px; background: rgba(10,10,12,0.7); padding: 8px 12px; border-radius: 6px;
-        }
+        .floor-badge { color: #fbbf24; font-size: 16px; letter-spacing: 1px; font-weight: bold; }
 
         /* Floating Log */
         #log {
-            position: absolute; bottom: 20px; right: 20px; width: 280px; pointer-events: none;
-            display: flex; flex-direction: column; gap: 4px; text-align: right; font-size: 13px;
+            position: absolute; top: 80px; right: 15px; width: 220px; pointer-events: none;
+            display: flex; flex-direction: column; gap: 4px; text-align: right; font-size: 12px;
         }
         .log-msg { background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px; animation: fadeOut 3s forwards; }
         @keyframes fadeOut { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
 
+        /* Mobile Touch Controls */
+        #virtual-joystick {
+            position: absolute; bottom: 30px; left: 30px; width: 120px; height: 120px;
+            background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%; pointer-events: auto; display: none;
+        }
+        #joystick-thumb {
+            position: absolute; top: 35px; left: 35px; width: 50px; height: 50px;
+            background: rgba(255, 255, 255, 0.4); border-radius: 50%; pointer-events: none;
+            transition: transform 0.05s linear;
+        }
+
+        #attack-btn {
+            position: absolute; bottom: 35px; right: 35px; width: 90px; height: 90px;
+            background: rgba(220, 38, 38, 0.85); border: 3px solid #f87171; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 28px;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4); cursor: pointer; pointer-events: auto;
+        }
+        #attack-btn:active { background: #ef4444; transform: scale(0.92); }
+
         /* Game Over / Start Modal */
         #overlay {
-            position: absolute; inset: 0; background: rgba(5, 5, 8, 0.85);
+            position: absolute; inset: 0; background: rgba(5, 5, 8, 0.9);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 10; text-align: center;
+            z-index: 10; text-align: center; padding: 20px;
         }
-        #overlay h1 { font-size: 48px; color: #ef4444; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 3px; }
-        #overlay p { font-size: 18px; color: #aaa; margin-bottom: 25px; max-width: 500px; }
-        button {
-            padding: 12px 32px; font-size: 18px; font-weight: bold; color: #fff;
-            background: #dc2626; border: none; border-radius: 6px; cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
+        #overlay h1 { font-size: 36px; color: #ef4444; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; }
+        #overlay p { font-size: 16px; color: #aaa; margin-bottom: 25px; max-width: 400px; }
+        button.start-button {
+            padding: 14px 36px; font-size: 18px; font-weight: bold; color: #fff;
+            background: #dc2626; border: none; border-radius: 8px; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.5);
         }
-        button:hover { background: #ef4444; transform: scale(1.05); }
     </style>
     <!-- Load Three.js from CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -57,39 +72,40 @@
 
 <div id="game-container">
     <div id="hud">
-        <div class="floor-badge" id="floor-text">DEPTH: FLOOR 1</div>
-        <div class="stat-row">
-            <span>HP</span>
-            <div class="bar-container"><div id="hp-bar"></div></div>
-            <span id="hp-text">100/100</span>
+        <div class="hud-group">
+            <div class="floor-badge" id="floor-text">FLOOR 1</div>
+            <div class="stat-row">
+                <span>HP</span>
+                <div class="bar-container"><div id="hp-bar"></div></div>
+                <span id="hp-text" style="font-size: 12px;">100</span>
+            </div>
         </div>
-        <div class="stat-row" style="font-size: 14px; color: #ccc;">
+        <div class="hud-group" style="align-items: flex-end; font-size: 12px; color: #ccc;">
             <span>⚔️ ATK: <b id="atk-text">20</b></span>
             <span>⚡ SPD: <b id="spd-text">7.0</b></span>
             <span>💀 KILLS: <b id="kills-text">0</b></span>
         </div>
     </div>
 
-    <div id="controls-hint">
-        <b>WASD / Arrows:</b> Move &nbsp;|&nbsp; <b>Mouse:</b> Aim &nbsp;|&nbsp; <b>Left Click / Space:</b> Slash Attack
-    </div>
-
     <div id="log"></div>
+
+    <!-- Mobile Controls UI -->
+    <div id="virtual-joystick"><div id="joystick-thumb"></div></div>
+    <div id="attack-btn">⚔️</div>
 
     <div id="overlay">
         <h1 id="overlay-title" style="color: #fbbf24;">EMBER DEPTHS</h1>
-        <p id="overlay-desc">Descend into the procedural catacombs. Slay monsters, collect relics, and find the glowing portal to descend deeper. Death is permanent.</p>
-        <button id="start-btn">ENTER DUNGEON</button>
+        <p id="overlay-desc">Use the left thumb joystick to move through catacombs, and tap the right attack button to slash enemies. Find the purple portal to descend deeper.</p>
+        <button class="start-button" id="start-btn">ENTER DUNGEON</button>
     </div>
 </div>
 
 <script>
 /**
- * 2.5D TOP-DOWN ROGUELIKE DUNGEON CRAWLER
+ * 2.5D MOBILE-OPTIMIZED ROGUELIKE DUNGEON CRAWLER
  */
 
-// --- GAME CONSTANTS & STATE ---
-const MAP_SIZE = 36;
+const MAP_SIZE = 34;
 const TILE_SIZE = 2;
 const WALL_HEIGHT = 2.6;
 
@@ -97,12 +113,10 @@ let scene, camera, renderer, torchLight, slashMesh;
 let isGameRunning = false;
 let clock = new THREE.Clock();
 
-// Dungeon Grid: 0 = Void, 1 = Floor, 2 = Wall
 let grid = [];
 let mapGroup = new THREE.Group();
 let entityGroup = new THREE.Group();
 
-// Player State
 const player = {
     mesh: null,
     x: 0, z: 0,
@@ -120,72 +134,61 @@ let items = [];
 let particles = [];
 let exitPortal = null;
 
-// Input State
+// Touch & Joystick Input State
+const joystickState = { active: false, startX: 0, startY: 0, moveX: 0, moveY: 0 };
 const keys = {};
-const mouse = new THREE.Vector2();
-const raycaster = new THREE.Raycaster();
-const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.5);
 
-// --- INITIALIZATION ---
 function initEngine() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x070709);
     scene.fog = new THREE.FogExp2(0x070709, 0.045);
 
-    // 2.5D Isometric/Angled Top-Down Camera
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
     
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.getElementById('game-container').appendChild(renderer.domElement);
 
-    // Ambient & Torch Lighting
-    const ambientLight = new THREE.AmbientLight(0x2a2a3d, 0.55);
+    const ambientLight = new THREE.AmbientLight(0x2a2a3d, 0.6);
     scene.add(ambientLight);
 
-    torchLight = new THREE.PointLight(0xff8c3b, 2.2, 18, 1.5);
+    torchLight = new THREE.PointLight(0xff8c3b, 2.2, 16, 1.5);
     torchLight.castShadow = true;
-    torchLight.shadow.mapSize.width = 1024;
-    torchLight.shadow.mapSize.height = 1024;
     scene.add(torchLight);
 
     scene.add(mapGroup);
     scene.add(entityGroup);
 
     createPlayerMesh();
-    setupInputs();
+    setupTouchControls();
     window.addEventListener('resize', onWindowResize);
 }
 
 function createPlayerMesh() {
     const group = new THREE.Group();
 
-    // Body (Cloaked Knight)
-    const bodyGeo = new THREE.CylinderGeometry(0.4, 0.5, 1.2, 12);
+    const bodyGeo = new THREE.CylinderGeometry(0.4, 0.5, 1.2, 10);
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.4 });
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     body.position.y = 0.6;
     body.castShadow = true;
     group.add(body);
 
-    // Head/Helmet
-    const headGeo = new THREE.SphereGeometry(0.32, 12, 12);
+    const headGeo = new THREE.SphereGeometry(0.32, 10, 10);
     const headMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.6, roughness: 0.2 });
     const head = new THREE.Mesh(headGeo, headMat);
     head.position.y = 1.35;
     head.castShadow = true;
     group.add(head);
 
-    // Sword (Indicator of facing direction)
     const swordGeo = new THREE.BoxGeometry(0.12, 0.12, 1.1);
     const swordMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0x78350f });
     const sword = new THREE.Mesh(swordGeo, swordMat);
     sword.position.set(0.45, 0.75, 0.45);
     group.add(sword);
 
-    // Slash Arc Visual
     const slashGeo = new THREE.RingGeometry(0.8, 2.1, 16, 1, -Math.PI / 3, (2 * Math.PI) / 3);
     const slashMat = new THREE.MeshBasicMaterial({ color: 0xfef08a, side: THREE.DoubleSide, transparent: true, opacity: 0 });
     slashMesh = new THREE.Mesh(slashGeo, slashMat);
@@ -200,27 +203,24 @@ function createPlayerMesh() {
 
 // --- PROCEDURAL DUNGEON GENERATOR ---
 function generateDungeon() {
-    // Clear previous meshes
     while(mapGroup.children.length > 0) mapGroup.remove(mapGroup.children[0]);
     while(entityGroup.children.length > 0) entityGroup.remove(entityGroup.children[0]);
     enemies = [];
     items = [];
 
-    // Fill grid with walls (2)
     grid = Array.from({ length: MAP_SIZE }, () => Array(MAP_SIZE).fill(2));
     const rooms = [];
-    const numRooms = 9 + Math.min(player.floor, 6);
+    const numRooms = 8 + Math.min(player.floor, 5);
 
     for (let i = 0; i < numRooms * 3; i++) {
         if (rooms.length >= numRooms) break;
-        const w = Math.floor(Math.random() * 4) + 4; // 4 to 7
+        const w = Math.floor(Math.random() * 4) + 4;
         const h = Math.floor(Math.random() * 4) + 4;
         const x = Math.floor(Math.random() * (MAP_SIZE - w - 2)) + 1;
         const y = Math.floor(Math.random() * (MAP_SIZE - h - 2)) + 1;
 
         const newRoom = { x, y, w, h, cx: Math.floor(x + w / 2), cy: Math.floor(y + h / 2) };
 
-        // Check overlap
         let overlaps = false;
         for (const r of rooms) {
             if (newRoom.x - 1 < r.x + r.w && newRoom.x + newRoom.w + 1 > r.x &&
@@ -242,63 +242,43 @@ function generateDungeon() {
 
     buildDungeonGeometry();
 
-    // Place Player in First Room
     const startRoom = rooms[0];
     player.x = startRoom.cx * TILE_SIZE;
     player.z = startRoom.cy * TILE_SIZE;
     player.mesh.position.set(player.x, 0, player.z);
 
-    // Place Exit Portal in Furthest Room
     const endRoom = rooms[rooms.length - 1];
     spawnExitPortal(endRoom.cx * TILE_SIZE, endRoom.cy * TILE_SIZE);
 
-    // Populate Enemies & Loot in other rooms
     for (let i = 1; i < rooms.length; i++) {
         const r = rooms[i];
         const enemyCount = Math.floor(Math.random() * 2) + 1 + Math.floor(player.floor / 2);
         for (let e = 0; e < enemyCount; e++) {
-            const ex = (r.x + 1 + Math.random() * (r.w - 2)) * TILE_SIZE;
-            const ez = (r.y + 1 + Math.random() * (r.h - 2)) * TILE_SIZE;
-            spawnEnemy(ex, ez);
+            spawnEnemy((r.x + 1 + Math.random() * (r.w - 2)) * TILE_SIZE, (r.y + 1 + Math.random() * (r.h - 2)) * TILE_SIZE);
         }
-
-        // 50% chance for a chest/loot item per room
-        if (Math.random() < 0.5) {
-            const ix = r.cx * TILE_SIZE;
-            const iz = r.cy * TILE_SIZE;
-            spawnItem(ix, iz);
-        }
+        if (Math.random() < 0.5) spawnItem(r.cx * TILE_SIZE, r.cy * TILE_SIZE);
     }
 
-    logEvent(`Entered Floor ${player.floor}...`);
+    logEvent(`Entered Floor ${player.floor}`);
     updateHUD();
 }
 
 function carveRoom(r) {
     for (let y = r.y; y < r.y + r.h; y++) {
-        for (let x = r.x; x < r.x + r.w; x++) {
-            grid[y][x] = 1;
-        }
+        for (let x = r.x; x < r.x + r.w; x++) grid[y][x] = 1;
     }
 }
 
 function carveCorridor(x1, y1, x2, y2) {
     let x = x1, y = y1;
-    while (x !== x2) {
-        grid[y][x] = 1;
-        x += x < x2 ? 1 : -1;
-    }
-    while (y !== y2) {
-        grid[y][x] = 1;
-        y += y < y2 ? 1 : -1;
-    }
+    while (x !== x2) { grid[y][x] = 1; x += x < x2 ? 1 : -1; }
+    while (y !== y2) { grid[y][x] = 1; y += y < y2 ? 1 : -1; }
 }
 
 function buildDungeonGeometry() {
     const floorGeo = new THREE.BoxGeometry(TILE_SIZE, 0.2, TILE_SIZE);
     const floorMat1 = new THREE.MeshStandardMaterial({ color: 0x1e2028, roughness: 0.85 });
     const floorMat2 = new THREE.MeshStandardMaterial({ color: 0x252833, roughness: 0.85 });
-
     const wallGeo = new THREE.BoxGeometry(TILE_SIZE, WALL_HEIGHT, TILE_SIZE);
     const wallMat = new THREE.MeshStandardMaterial({ color: 0x3b3e4d, roughness: 0.7 });
 
@@ -310,11 +290,9 @@ function buildDungeonGeometry() {
                 tile.receiveShadow = true;
                 mapGroup.add(tile);
             } else if (hasAdjacentFloor(x, y)) {
-                // Only render walls bordering floor tiles for performance
                 const wall = new THREE.Mesh(wallGeo, wallMat);
                 wall.position.set(x * TILE_SIZE, WALL_HEIGHT / 2, y * TILE_SIZE);
                 wall.castShadow = true;
-                wall.receiveShadow = true;
                 mapGroup.add(wall);
             }
         }
@@ -325,40 +303,27 @@ function hasAdjacentFloor(x, y) {
     for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
             const ny = y + dy, nx = x + dx;
-            if (ny >= 0 && ny < MAP_SIZE && nx >= 0 && nx < MAP_SIZE && grid[ny][nx] === 1) {
-                return true;
-            }
+            if (ny >= 0 && ny < MAP_SIZE && nx >= 0 && nx < MAP_SIZE && grid[ny][nx] === 1) return true;
         }
     }
     return false;
 }
 
-// --- ENTITIES: ENEMIES, ITEMS, PORTAL ---
 function spawnEnemy(x, z) {
     const isBrute = Math.random() < (0.15 * player.floor);
-    const scale = isBrute ? 1.35 : 0.95;
-    const hp = (isBrute ? 70 : 35) + (player.floor - 1) * 12;
-    const atk = (isBrute ? 18 : 10) + (player.floor - 1) * 3;
-    const speed = isBrute ? 3.2 : 4.4;
+    const scale = isBrute ? 1.3 : 0.95;
+    const hp = (isBrute ? 70 : 35) + (player.floor - 1) * 10;
+    const atk = (isBrute ? 16 : 10) + (player.floor - 1) * 2;
 
-    const geo = new THREE.BoxGeometry(0.8 * scale, 1.3 * scale, 0.8 * scale);
-    const mat = new THREE.MeshStandardMaterial({ 
-        color: isBrute ? 0x991b1b : 0x16a34a, 
-        roughness: 0.5 
-    });
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.8 * scale, 1.3 * scale, 0.8 * scale),
+        new THREE.MeshStandardMaterial({ color: isBrute ? 0x991b1b : 0x16a34a })
+    );
     mesh.position.set(x, (1.3 * scale) / 2, z);
     mesh.castShadow = true;
     entityGroup.add(mesh);
 
-    enemies.push({
-        mesh, x, z,
-        hp, maxHp: hp,
-        atk, speed,
-        radius: 0.45 * scale,
-        hitFlash: 0,
-        attackCooldown: 0
-    });
+    enemies.push({ mesh, x, z, hp, maxHp: hp, atk, speed: isBrute ? 3.0 : 4.2, radius: 0.4 * scale, hitFlash: 0, attackCooldown: 0 });
 }
 
 function spawnItem(x, z) {
@@ -366,43 +331,37 @@ function spawnItem(x, z) {
     const type = types[Math.floor(Math.random() * types.length)];
     const colors = { heal: 0xef4444, atk: 0xf59e0b, spd: 0x06b6d4 };
 
-    const geo = new THREE.OctahedronGeometry(0.4);
-    const mat = new THREE.MeshStandardMaterial({ 
-        color: colors[type], 
-        emissive: colors[type], 
-        emissiveIntensity: 0.5 
-    });
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.4),
+        new THREE.MeshStandardMaterial({ color: colors[type], emissive: colors[type], emissiveIntensity: 0.5 })
+    );
     mesh.position.set(x, 0.6, z);
     entityGroup.add(mesh);
-
     items.push({ mesh, x, z, type });
 }
 
 function spawnExitPortal(x, z) {
-    const geo = new THREE.TorusGeometry(0.8, 0.15, 12, 24);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xa855f7 });
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(
+        new THREE.TorusGeometry(0.8, 0.15, 10, 20),
+        new THREE.MeshBasicMaterial({ color: 0xa855f7 })
+    );
     mesh.rotation.x = Math.PI / 2;
     mesh.position.set(x, 0.1, z);
     entityGroup.add(mesh);
 
-    const light = new THREE.PointLight(0xa855f7, 1.8, 8);
+    const light = new THREE.PointLight(0xa855f7, 1.8, 6);
     light.position.set(x, 1.2, z);
     entityGroup.add(light);
-
     exitPortal = { mesh, x, z };
 }
 
-// --- COMBAT & GAMEPLAY LOGIC ---
+// --- GAMEPLAY LOOP & COMBAT ---
 function performAttack() {
     if (player.attackCooldown > 0 || !isGameRunning) return;
     player.attackCooldown = 0.35;
     slashMesh.material.opacity = 0.85;
 
     const attackRange = 2.6;
-    const attackArc = Math.PI * 0.65; // 117 degree cleave
-
     for (let i = enemies.length - 1; i >= 0; i--) {
         const e = enemies[i];
         const dx = e.x - player.x;
@@ -410,222 +369,198 @@ function performAttack() {
         const dist = Math.hypot(dx, dz);
 
         if (dist <= attackRange + e.radius) {
-            const angleToEnemy = Math.atan2(dx, dz);
-            let angleDiff = angleToEnemy - player.angle;
-            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+            e.hp -= player.atk;
+            e.hitFlash = 0.15;
+            moveEntityWithCollision(e, (dx / dist) * 0.5, (dz / dist) * 0.5);
+            spawnParticles(e.x, 0.8, e.z, 0xef4444, 5);
 
-            if (Math.abs(angleDiff) <= attackArc / 2) {
-                // Hit enemy
-                e.hp -= player.atk;
-                e.hitFlash = 0.15;
-                
-                // Knockback
-                const nx = dx / (dist || 1);
-                const nz = dz / (dist || 1);
-                moveEntityWithCollision(e, nx * 0.6, nz * 0.6);
-
-                spawnParticles(e.x, 0.8, e.z, 0xef4444, 6);
-
-                if (e.hp <= 0) {
-                    entityGroup.remove(e.mesh);
-                    enemies.splice(i, 1);
-                    player.kills++;
-                    updateHUD();
-                    if (Math.random() < 0.25) spawnItem(e.x, e.z);
-                }
+            if (e.hp <= 0) {
+                entityGroup.remove(e.mesh);
+                enemies.splice(i, 1);
+                player.kills++;
+                updateHUD();
+                if (Math.random() < 0.25) spawnItem(e.x, e.z);
             }
         }
     }
 }
 
 function moveEntityWithCollision(entity, dx, dz, radius = 0.4) {
-    // Check X axis
     const nextX = entity.x + dx;
-    if (!isWallAt(nextX + radius, entity.z + radius) &&
-        !isWallAt(nextX - radius, entity.z + radius) &&
-        !isWallAt(nextX + radius, entity.z - radius) &&
-        !isWallAt(nextX - radius, entity.z - radius)) {
-        entity.x = nextX;
-    }
-
-    // Check Z axis
+    if (!isWallAt(nextX + radius, entity.z + radius) && !isWallAt(nextX - radius, entity.z - radius)) entity.x = nextX;
     const nextZ = entity.z + dz;
-    if (!isWallAt(entity.x + radius, nextZ + radius) &&
-        !isWallAt(entity.x - radius, nextZ + radius) &&
-        !isWallAt(entity.x + radius, nextZ - radius) &&
-        !isWallAt(entity.x - radius, nextZ - radius)) {
-        entity.z = nextZ;
-    }
+    if (!isWallAt(entity.x + radius, nextZ + radius) && !isWallAt(entity.x - radius, nextZ - radius)) entity.z = nextZ;
 }
 
 function isWallAt(wx, wz) {
     const gx = Math.round(wx / TILE_SIZE);
     const gz = Math.round(wz / TILE_SIZE);
-    if (gx < 0 || gx >= MAP_SIZE || gz < 0 || gz >= MAP_SIZE) return true;
-    return grid[gz][gx] !== 1;
+    return gx < 0 || gx >= MAP_SIZE || gz < 0 || gz >= MAP_SIZE || grid[gz][gx] !== 1;
 }
 
 function spawnParticles(x, y, z, color, count) {
-    const geo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+    const geo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
     const mat = new THREE.MeshBasicMaterial({ color });
     for (let i = 0; i < count; i++) {
         const mesh = new THREE.Mesh(geo, mat);
         mesh.position.set(x, y, z);
         entityGroup.add(mesh);
-        particles.push({
-            mesh,
-            vx: (Math.random() - 0.5) * 6,
-            vy: Math.random() * 4 + 2,
-            vz: (Math.random() - 0.5) * 6,
-            life: 0.4
-        });
+        particles.push({ mesh, vx: (Math.random() - 0.5) * 5, vy: Math.random() * 3 + 2, vz: (Math.random() - 0.5) * 5, life: 0.35 });
     }
 }
 
-// --- MAIN LOOP ---
 function update(dt) {
     if (!isGameRunning) return;
 
-    // 1. Player Movement
-    let moveX = 0, moveZ = 0;
-    if (keys['KeyW'] || keys['ArrowUp']) moveZ -= 1;
-    if (keys['KeyS'] || keys['ArrowDown']) moveZ += 1;
-    if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
-    if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
-
-    if (moveX !== 0 || moveZ !== 0) {
-        const len = Math.hypot(moveX, moveZ);
-        moveX = (moveX / len) * player.speed * dt;
-        moveZ = (moveZ / len) * player.speed * dt;
-        moveEntityWithCollision(player, moveX, moveZ, 0.42);
+    // Joystick movement processing
+    if (joystickState.active && (joystickState.moveX !== 0 || joystickState.moveY !== 0)) {
+        const moveX = joystickState.moveX * player.speed * dt;
+        const moveZ = joystickState.moveY * player.speed * dt;
+        moveEntityWithCollision(player, moveX, moveZ, 0.4);
+        player.angle = Math.atan2(joystickState.moveX, joystickState.moveY);
+        player.mesh.rotation.y = player.angle;
     }
 
     player.mesh.position.set(player.x, 0, player.z);
 
-    // 2. Aiming via Raycaster
-    raycaster.setFromCamera(mouse, camera);
-    const targetPoint = new THREE.Vector3();
-    if (raycaster.ray.intersectPlane(groundPlane, targetPoint)) {
-        player.angle = Math.atan2(targetPoint.x - player.x, targetPoint.z - player.z);
-        player.mesh.rotation.y = player.angle;
-    }
-
-    // 3. Cooldowns & Visuals
     if (player.attackCooldown > 0) player.attackCooldown -= dt;
     if (player.invulnTimer > 0) player.invulnTimer -= dt;
-    if (slashMesh.material.opacity > 0) {
-        slashMesh.material.opacity = Math.max(0, slashMesh.material.opacity - dt * 4);
-    }
+    if (slashMesh.material.opacity > 0) slashMesh.material.opacity = Math.max(0, slashMesh.material.opacity - dt * 4);
 
-    // Torch & Camera Follow (Smooth 2.5D perspective)
     torchLight.position.set(player.x, 2.8, player.z);
-    torchLight.intensity = 2.1 + Math.sin(clock.elapsedTime * 15) * 0.15;
-
-    const camOffset = new THREE.Vector3(0, 14, 10.5);
-    camera.position.lerp(new THREE.Vector3(player.x + camOffset.x, camOffset.y, player.z + camOffset.z), 0.12);
+    
+    // Smooth Camera Follow
+    const camTarget = new THREE.Vector3(player.x, 13.5, player.z + 10);
+    camera.position.lerp(camTarget, 0.12);
     camera.lookAt(player.x, 0.5, player.z);
 
-    // 4. Update Enemies
+    // Enemy AI logic
     for (const e of enemies) {
-        if (e.hitFlash > 0) {
-            e.hitFlash -= dt;
-            e.mesh.material.emissive.setHex(0xffffff);
-        } else {
-            e.mesh.material.emissive.setHex(0x000000);
-        }
-
+        if (e.hitFlash > 0) { e.hitFlash -= dt; e.mesh.material.emissive.setHex(0xffffff); }
+        else e.mesh.material.emissive.setHex(0x000000);
         if (e.attackCooldown > 0) e.attackCooldown -= dt;
 
         const dx = player.x - e.x;
         const dz = player.z - e.z;
         const dist = Math.hypot(dx, dz);
 
-        // Aggro range
-        if (dist < 12 && dist > 0.9) {
-            const vx = (dx / dist) * e.speed * dt;
-            const vz = (dz / dist) * e.speed * dt;
-            moveEntityWithCollision(e, vx, vz, e.radius);
+        if (dist < 11 && dist > 0.8) {
+            moveEntityWithCollision(e, (dx / dist) * e.speed * dt, (dz / dist) * e.speed * dt, e.radius);
             e.mesh.rotation.y = Math.atan2(dx, dz);
         }
 
-        // Melee Damage to Player
         if (dist <= 1.15 && e.attackCooldown <= 0 && player.invulnTimer <= 0) {
             player.hp = Math.max(0, player.hp - e.atk);
             player.invulnTimer = 0.5;
             e.attackCooldown = 1.0;
-            spawnParticles(player.x, 1.0, player.z, 0xef4444, 8);
+            spawnParticles(player.x, 1.0, player.z, 0xef4444, 6);
             updateHUD();
-
-            if (player.hp <= 0) {
-                gameOver();
-                return;
-            }
+            if (player.hp <= 0) { gameOver(); return; }
         }
-
         e.mesh.position.set(e.x, e.mesh.position.y, e.z);
     }
 
-    // 5. Update Items
+    // Item Collection
     for (let i = items.length - 1; i >= 0; i--) {
         const item = items[i];
-        item.mesh.rotation.y += dt * 2.5;
-        item.mesh.position.y = 0.6 + Math.sin(clock.elapsedTime * 4 + i) * 0.12;
-
+        item.mesh.rotation.y += dt * 2;
         if (Math.hypot(player.x - item.x, player.z - item.z) < 1.0) {
-            if (item.type === 'heal') {
-                player.hp = Math.min(player.maxHp, player.hp + 35);
-                logEvent("Drank Crimson Potion (+35 HP)");
-            } else if (item.type === 'atk') {
-                player.atk += 5;
-                logEvent("Found Whetstone (+5 ATK)");
-            } else if (item.type === 'spd') {
-                player.speed = Math.min(11, player.speed + 0.5);
-                logEvent("Equipped Swift Boots (+0.5 SPD)");
-            }
+            if (item.type === 'heal') { player.hp = Math.min(player.maxHp, player.hp + 30); logEvent("Potion (+30 HP)"); }
+            else if (item.type === 'atk') { player.atk += 4; logEvent("Whetstone (+4 ATK)"); }
+            else if (item.type === 'spd') { player.speed = Math.min(10, player.speed + 0.4); logEvent("Swift Boots"); }
             entityGroup.remove(item.mesh);
             items.splice(i, 1);
             updateHUD();
         }
     }
 
-    // 6. Check Exit Portal
+    // Portal Exit
     if (exitPortal) {
         exitPortal.mesh.rotation.z += dt * 2;
         if (Math.hypot(player.x - exitPortal.x, player.z - exitPortal.z) < 1.1) {
             player.floor++;
-            player.hp = Math.min(player.maxHp, player.hp + 15); // Small floor transition heal
+            player.hp = Math.min(player.maxHp, player.hp + 15);
             generateDungeon();
         }
     }
 
-    // 7. Update Particles
+    // Particles
     for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         p.life -= dt;
-        p.mesh.position.x += p.vx * dt;
-        p.mesh.position.y += p.vy * dt;
-        p.mesh.position.z += p.vz * dt;
-        p.vy -= 12 * dt; // Gravity
-        if (p.life <= 0) {
-            entityGroup.remove(p.mesh);
-            particles.splice(i, 1);
-        }
+        p.mesh.position.addScaledVector(new THREE.Vector3(p.vx, p.vy, p.vz), dt);
+        p.vy -= 10 * dt;
+        if (p.life <= 0) { entityGroup.remove(p.mesh); particles.splice(i, 1); }
     }
 }
 
 function animate() {
     requestAnimationFrame(animate);
-    const dt = Math.min(clock.getDelta(), 0.1);
-    update(dt);
+    update(Math.min(clock.getDelta(), 0.1));
     renderer.render(scene, camera);
 }
 
-// --- UI & HELPERS ---
+// --- TOUCH CONTROLS HANDLER ---
+function setupTouchControls() {
+    const joystickArea = document.getElementById('virtual-joystick');
+    const thumb = document.getElementById('joystick-thumb');
+
+    joystickArea.addEventListener('touchstart', e => {
+        e.preventDefault();
+        const touch = e.targetTouches[0];
+        joystickState.active = true;
+        const rect = joystickArea.getBoundingClientRect();
+        joystickState.startX = rect.left + rect.width / 2;
+        joystickState.startY = rect.top + rect.height / 2;
+    }, { passive: false });
+
+    window.addEventListener('touchmove', e => {
+        if (!joystickState.active) return;
+        e.preventDefault();
+        const touch = e.targetTouches[0];
+        const dx = touch.clientX - joystickState.startX;
+        const dy = touch.clientY - joystickState.startY;
+        const dist = Math.hypot(dx, dy);
+        const maxDist = 40;
+
+        const angle = Math.atan2(dy, dx);
+        const clampedDist = Math.min(dist, maxDist);
+        
+        thumb.style.transform = `translate(${Math.cos(angle) * clampedDist}px, ${Math.sin(angle) * clampedDist}px)`;
+        
+        joystickState.moveX = (Math.cos(angle) * clampedDist) / maxDist;
+        joystickState.moveY = (Math.sin(angle) * clampedDist) / maxDist;
+    }, { passive: false });
+
+    const endJoystick = () => {
+        if (!joystickState.active) return;
+        joystickState.active = false;
+        joystickState.moveX = 0;
+        joystickState.moveY = 0;
+        thumb.style.transform = `translate(0px, 0px)`;
+    };
+
+    window.addEventListener('touchend', endJoystick);
+    window.addEventListener('touchcancel', endJoystick);
+
+    document.getElementById('attack-btn').addEventListener('touchstart', e => {
+        e.preventDefault();
+        performAttack();
+    }, { passive: false });
+
+    document.getElementById('start-btn').addEventListener('click', () => {
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById('virtual-joystick').style.display = 'block';
+        player.hp = 100; player.maxHp = 100; player.atk = 20; player.speed = 7.0; player.kills = 0; player.floor = 1;
+        generateDungeon();
+        isGameRunning = true;
+    });
+}
+
 function updateHUD() {
-    document.getElementById('floor-text').innerText = `DEPTH: FLOOR ${player.floor}`;
+    document.getElementById('floor-text').innerText = `FLOOR ${player.floor}`;
     document.getElementById('hp-bar').style.width = `${(player.hp / player.maxHp) * 100}%`;
-    document.getElementById('hp-text').innerText = `${player.hp}/${player.maxHp}`;
+    document.getElementById('hp-text').innerText = player.hp;
     document.getElementById('atk-text').innerText = player.atk;
     document.getElementById('spd-text').innerText = player.speed.toFixed(1);
     document.getElementById('kills-text').innerText = player.kills;
@@ -640,43 +575,14 @@ function logEvent(text) {
     setTimeout(() => div.remove(), 3000);
 }
 
-function startGame() {
-    player.hp = 100;
-    player.maxHp = 100;
-    player.atk = 20;
-    player.speed = 7.0;
-    player.kills = 0;
-    player.floor = 1;
-
-    document.getElementById('overlay').style.display = 'none';
-    generateDungeon();
-    isGameRunning = true;
-}
-
 function gameOver() {
     isGameRunning = false;
+    document.getElementById('virtual-joystick').style.display = 'none';
     const overlay = document.getElementById('overlay');
     document.getElementById('overlay-title').innerText = "YOU PERISHED";
-    document.getElementById('overlay-title').style.color = "#ef4444";
-    document.getElementById('overlay-desc').innerText = `You fell on Floor ${player.floor} after slaying ${player.kills} monsters.`;
+    document.getElementById('overlay-desc').innerText = `Fell on Floor ${player.floor} after slaying ${player.kills} monsters.`;
     document.getElementById('start-btn').innerText = "TRY AGAIN";
     overlay.style.display = 'flex';
-}
-
-function setupInputs() {
-    window.addEventListener('keydown', e => {
-        keys[e.code] = true;
-        if (e.code === 'Space') performAttack();
-    });
-    window.addEventListener('keyup', e => keys[e.code] = false);
-    window.addEventListener('mousemove', e => {
-        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-    });
-    window.addEventListener('mousedown', e => {
-        if (e.button === 0) performAttack();
-    });
-    document.getElementById('start-btn').addEventListener('click', startGame);
 }
 
 function onWindowResize() {
@@ -685,7 +591,6 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Boot
 initEngine();
 animate();
 </script>
