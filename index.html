@@ -3,74 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2.5D Mobile Roguelike Dungeon Crawler</title>
+    <title>Ember Depths — 2.5D Mobile Roguelike</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: none; }
-        body { background: #0a0a0c; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+        body { background: #070709; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
         #game-container { position: relative; width: 100vw; height: 100vh; }
         canvas { display: block; width: 100vw; height: 100vh; }
         
-        /* HUD Overlay */
+        /* --- HUD OVERLAY --- */
         #hud {
             position: absolute; top: 15px; left: 15px; right: 15px; pointer-events: none;
-            display: flex; justify-content: space-between; align-items: center;
-            background: rgba(15, 15, 20, 0.8); padding: 12px 16px;
-            border: 1px solid #333; border-radius: 10px; backdrop-filter: blur(4px);
+            display: none; justify-content: space-between; align-items: center;
+            background: rgba(15, 15, 20, 0.85); padding: 12px 16px;
+            border: 1px solid #333; border-radius: 12px; backdrop-filter: blur(6px);
         }
         .hud-group { display: flex; flex-direction: column; gap: 4px; }
         .stat-row { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: bold; }
-        .bar-container { width: 120px; height: 12px; background: #222; border-radius: 4px; overflow: hidden; border: 1px solid #444; }
+        .bar-container { width: 115px; height: 12px; background: #222; border-radius: 4px; overflow: hidden; border: 1px solid #444; }
         #hp-bar { width: 100%; height: 100%; background: linear-gradient(90deg, #b91c1c, #ef4444); transition: width 0.15s; }
         .floor-badge { color: #fbbf24; font-size: 16px; letter-spacing: 1px; font-weight: bold; }
 
-        /* Floating Log */
+        /* Floating Event Log */
         #log {
-            position: absolute; top: 80px; right: 15px; width: 220px; pointer-events: none;
+            position: absolute; top: 82px; right: 15px; width: 220px; pointer-events: none;
             display: flex; flex-direction: column; gap: 4px; text-align: right; font-size: 12px;
         }
-        .log-msg { background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px; animation: fadeOut 3s forwards; }
+        .log-msg { background: rgba(0,0,0,0.65); padding: 4px 8px; border-radius: 4px; animation: fadeOut 3s forwards; }
         @keyframes fadeOut { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
 
-        /* Mobile Touch Controls */
+        /* --- MOBILE TOUCH CONTROLS --- */
         #virtual-joystick {
-            position: absolute; bottom: 30px; left: 30px; width: 120px; height: 120px;
-            background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.2);
+            position: absolute; bottom: 30px; left: 30px; width: 130px; height: 130px;
+            background: rgba(255, 255, 255, 0.06); border: 2px solid rgba(255, 255, 255, 0.22);
             border-radius: 50%; pointer-events: auto; display: none;
         }
         #joystick-thumb {
-            position: absolute; top: 35px; left: 35px; width: 50px; height: 50px;
-            background: rgba(255, 255, 255, 0.4); border-radius: 50%; pointer-events: none;
-            transition: transform 0.05s linear;
+            position: absolute; top: 40px; left: 40px; width: 50px; height: 50px;
+            background: rgba(255, 255, 255, 0.45); border-radius: 50%; pointer-events: none;
         }
-
         #attack-btn {
-            position: absolute; bottom: 35px; right: 35px; width: 90px; height: 90px;
+            position: absolute; bottom: 35px; right: 35px; width: 95px; height: 95px;
             background: rgba(220, 38, 38, 0.85); border: 3px solid #f87171; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; font-size: 28px;
-            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4); cursor: pointer; pointer-events: auto;
+            display: none; align-items: center; justify-content: center; font-size: 32px;
+            box-shadow: 0 4px 18px rgba(220, 38, 38, 0.45); cursor: pointer; pointer-events: auto;
         }
-        #attack-btn:active { background: #ef4444; transform: scale(0.92); }
+        #attack-btn:active, #attack-btn.pressed { background: #ef4444; transform: scale(0.92); }
 
-        /* Game Over / Start Modal */
-        #overlay {
-            position: absolute; inset: 0; background: rgba(5, 5, 8, 0.9);
+        /* --- STARTING MAIN MENU SCREEN --- */
+        #start-menu {
+            position: absolute; inset: 0;
+            background: radial-gradient(circle at center, rgba(15, 15, 22, 0.72) 0%, rgba(5, 5, 8, 0.94) 100%);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 10; text-align: center; padding: 20px;
+            z-index: 20; padding: 24px; text-align: center; backdrop-filter: blur(3px);
         }
-        #overlay h1 { font-size: 36px; color: #ef4444; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; }
-        #overlay p { font-size: 16px; color: #aaa; margin-bottom: 25px; max-width: 400px; }
-        button.start-button {
-            padding: 14px 36px; font-size: 18px; font-weight: bold; color: #fff;
-            background: #dc2626; border: none; border-radius: 8px; cursor: pointer;
-            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.5);
+        .game-subtitle { color: #f59e0b; font-size: 12px; font-weight: bold; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px; }
+        .game-title {
+            font-size: 40px; font-weight: 900; color: #ffffff; letter-spacing: 3px;
+            text-transform: uppercase; text-shadow: 0 4px 20px rgba(245, 158, 11, 0.45);
+            margin-bottom: 8px;
+        }
+        .record-pill {
+            background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 6px 14px; border-radius: 20px; font-size: 12px; color: #cbd5e1; margin-bottom: 24px;
+        }
+
+        .class-label { font-size: 13px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
+        .class-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+            width: 100%; max-width: 420px; margin-bottom: 26px;
+        }
+        .class-card {
+            background: rgba(24, 24, 32, 0.9); border: 2px solid #2e2e3e; border-radius: 12px;
+            padding: 12px 8px; cursor: pointer; transition: all 0.15s ease; pointer-events: auto;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+        }
+        .class-card.selected {
+            border-color: #f59e0b; background: rgba(245, 158, 11, 0.14);
+            transform: translateY(-3px); box-shadow: 0 6px 16px rgba(245, 158, 11, 0.25);
+        }
+        .class-icon { font-size: 24px; margin-bottom: 2px; }
+        .class-name { font-size: 13px; font-weight: bold; color: #fff; }
+        .class-stats { font-size: 11px; color: #94a3b8; line-height: 1.35; }
+
+        .primary-btn {
+            width: 100%; max-width: 300px; padding: 16px 28px; font-size: 18px; font-weight: 800;
+            color: #fff; background: linear-gradient(135deg, #dc2626, #b91c1c);
+            border: 1px solid #f87171; border-radius: 12px; cursor: pointer; pointer-events: auto;
+            letter-spacing: 1.5px; text-transform: uppercase;
+            box-shadow: 0 6px 24px rgba(220, 38, 38, 0.5); transition: transform 0.1s;
+        }
+        .primary-btn:active { transform: scale(0.96); }
+
+        .controls-note { margin-top: 18px; font-size: 12px; color: #64748b; max-width: 320px; line-height: 1.4; }
+
+        /* --- GAME OVER MODAL --- */
+        #gameover-menu {
+            position: absolute; inset: 0; background: rgba(5, 5, 8, 0.92);
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 25; padding: 24px; text-align: center;
+        }
+        #gameover-menu h1 { font-size: 38px; color: #ef4444; letter-spacing: 2px; margin-bottom: 10px; }
+        #gameover-stats { font-size: 16px; color: #cbd5e1; margin-bottom: 26px; line-height: 1.6; }
+        .secondary-btn {
+            width: 100%; max-width: 300px; padding: 13px 24px; font-size: 15px; font-weight: bold;
+            color: #cbd5e1; background: rgba(255, 255, 255, 0.08); border: 1px solid #475569;
+            border-radius: 12px; margin-top: 12px; cursor: pointer; pointer-events: auto;
         }
     </style>
-    <!-- Load Three.js from CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
 <div id="game-container">
+    <!-- IN-GAME HUD -->
     <div id="hud">
         <div class="hud-group">
             <div class="floor-badge" id="floor-text">FLOOR 1</div>
@@ -89,39 +134,73 @@
 
     <div id="log"></div>
 
-    <!-- Mobile Controls UI -->
+    <!-- MOBILE TOUCH CONTROLS -->
     <div id="virtual-joystick"><div id="joystick-thumb"></div></div>
     <div id="attack-btn">⚔️</div>
 
-    <div id="overlay">
-        <h1 id="overlay-title" style="color: #fbbf24;">EMBER DEPTHS</h1>
-        <p id="overlay-desc">Use the left thumb joystick to move through catacombs, and tap the right attack button to slash enemies. Find the purple portal to descend deeper.</p>
-        <button class="start-button" id="start-btn">ENTER DUNGEON</button>
+    <!-- STARTING MAIN MENU -->
+    <div id="start-menu">
+        <div class="game-subtitle">2.5D Action Roguelike</div>
+        <div class="game-title">EMBER DEPTHS</div>
+        <div class="record-pill" id="best-record">🏆 Best: Floor 1 &nbsp;|&nbsp; 💀 Total Slain: 0</div>
+
+        <div class="class-label">Choose Your Hero</div>
+        <div class="class-grid">
+            <div class="class-card selected" data-class="vanguard">
+                <div class="class-icon">🛡️</div>
+                <div class="class-name">Vanguard</div>
+                <div class="class-stats">120 HP<br>20 ATK • 6.8 SPD</div>
+            </div>
+            <div class="class-card" data-class="shadow">
+                <div class="class-icon">🗡️</div>
+                <div class="class-name">Shadow</div>
+                <div class="class-stats">85 HP<br>24 ATK • 8.6 SPD</div>
+            </div>
+            <div class="class-card" data-class="berserker">
+                <div class="class-icon">🪓</div>
+                <div class="class-name">Berserker</div>
+                <div class="class-stats">100 HP<br>30 ATK • 6.4 SPD</div>
+            </div>
+        </div>
+
+        <button class="primary-btn" id="start-run-btn">Start Run</button>
+        <div class="controls-note">Left thumb drag to move & aim • Right button to slash • Enter purple portals to descend</div>
+    </div>
+
+    <!-- GAME OVER SCREEN -->
+    <div id="gameover-menu">
+        <h1>YOU PERISHED</h1>
+        <div id="gameover-stats">Reached Floor 1 • 0 Monsters Slain</div>
+        <button class="primary-btn" id="retry-btn">Play Again</button>
+        <button class="secondary-btn" id="menu-return-btn">Main Menu</button>
     </div>
 </div>
 
 <script>
-/**
- * 2.5D MOBILE-OPTIMIZED ROGUELIKE DUNGEON CRAWLER
- */
-
 const MAP_SIZE = 34;
 const TILE_SIZE = 2;
 const WALL_HEIGHT = 2.6;
 
 let scene, camera, renderer, torchLight, slashMesh;
-let isGameRunning = false;
+let gameState = 'MENU';
 let clock = new THREE.Clock();
 
 let grid = [];
 let mapGroup = new THREE.Group();
 let entityGroup = new THREE.Group();
 
+const CLASSES = {
+    vanguard:  { hp: 120, atk: 20, speed: 6.8, color: 0x3b82f6 },
+    shadow:    { hp: 85,  atk: 24, speed: 8.6, color: 0x10b981 },
+    berserker: { hp: 100, atk: 30, speed: 6.4, color: 0xef4444 }
+};
+let selectedClass = 'vanguard';
+
 const player = {
-    mesh: null,
+    mesh: null, bodyMesh: null,
     x: 0, z: 0,
-    hp: 100, maxHp: 100,
-    atk: 20, speed: 7.0,
+    hp: 120, maxHp: 120,
+    atk: 20, speed: 6.8,
     angle: 0,
     attackCooldown: 0,
     invulnTimer: 0,
@@ -134,9 +213,16 @@ let items = [];
 let particles = [];
 let exitPortal = null;
 
-// Touch & Joystick Input State
-const joystickState = { active: false, startX: 0, startY: 0, moveX: 0, moveY: 0 };
-const keys = {};
+// Multi-Touch Input State (Tracks specific finger IDs)
+const joystickState = { touchId: null, startX: 0, startY: 0, moveX: 0, moveY: 0 };
+let isAttackHolding = false;
+
+let bestFloor = parseInt(localStorage.getItem('ember_best_floor') || '1', 10);
+let totalKills = parseInt(localStorage.getItem('ember_total_kills') || '0', 10);
+
+function updateRecordBanner() {
+    document.getElementById('best-record').innerHTML = `🏆 Best: Floor ${bestFloor} &nbsp;|&nbsp; 💀 Total Slain: ${totalKills}`;
+}
 
 function initEngine() {
     scene = new THREE.Scene();
@@ -151,10 +237,10 @@ function initEngine() {
     renderer.shadowMap.enabled = true;
     document.getElementById('game-container').appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0x2a2a3d, 0.6);
+    const ambientLight = new THREE.AmbientLight(0x2a2a3d, 0.65);
     scene.add(ambientLight);
 
-    torchLight = new THREE.PointLight(0xff8c3b, 2.2, 16, 1.5);
+    torchLight = new THREE.PointLight(0xff8c3b, 2.3, 17, 1.5);
     torchLight.castShadow = true;
     scene.add(torchLight);
 
@@ -162,7 +248,10 @@ function initEngine() {
     scene.add(entityGroup);
 
     createPlayerMesh();
-    setupTouchControls();
+    setupUIAndTouch();
+    updateRecordBanner();
+
+    generateDungeon(true);
     window.addEventListener('resize', onWindowResize);
 }
 
@@ -171,10 +260,10 @@ function createPlayerMesh() {
 
     const bodyGeo = new THREE.CylinderGeometry(0.4, 0.5, 1.2, 10);
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.4 });
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.y = 0.6;
-    body.castShadow = true;
-    group.add(body);
+    player.bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+    player.bodyMesh.position.y = 0.6;
+    player.bodyMesh.castShadow = true;
+    group.add(player.bodyMesh);
 
     const headGeo = new THREE.SphereGeometry(0.32, 10, 10);
     const headMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.6, roughness: 0.2 });
@@ -201,8 +290,7 @@ function createPlayerMesh() {
     scene.add(player.mesh);
 }
 
-// --- PROCEDURAL DUNGEON GENERATOR ---
-function generateDungeon() {
+function generateDungeon(isPreview = false) {
     while(mapGroup.children.length > 0) mapGroup.remove(mapGroup.children[0]);
     while(entityGroup.children.length > 0) entityGroup.remove(entityGroup.children[0]);
     enemies = [];
@@ -247,20 +335,22 @@ function generateDungeon() {
     player.z = startRoom.cy * TILE_SIZE;
     player.mesh.position.set(player.x, 0, player.z);
 
-    const endRoom = rooms[rooms.length - 1];
-    spawnExitPortal(endRoom.cx * TILE_SIZE, endRoom.cy * TILE_SIZE);
+    if (!isPreview) {
+        const endRoom = rooms[rooms.length - 1];
+        spawnExitPortal(endRoom.cx * TILE_SIZE, endRoom.cy * TILE_SIZE);
 
-    for (let i = 1; i < rooms.length; i++) {
-        const r = rooms[i];
-        const enemyCount = Math.floor(Math.random() * 2) + 1 + Math.floor(player.floor / 2);
-        for (let e = 0; e < enemyCount; e++) {
-            spawnEnemy((r.x + 1 + Math.random() * (r.w - 2)) * TILE_SIZE, (r.y + 1 + Math.random() * (r.h - 2)) * TILE_SIZE);
+        for (let i = 1; i < rooms.length; i++) {
+            const r = rooms[i];
+            const enemyCount = Math.floor(Math.random() * 2) + 1 + Math.floor(player.floor / 2);
+            for (let e = 0; e < enemyCount; e++) {
+                spawnEnemy((r.x + 1 + Math.random() * (r.w - 2)) * TILE_SIZE, (r.y + 1 + Math.random() * (r.h - 2)) * TILE_SIZE);
+            }
+            if (Math.random() < 0.5) spawnItem(r.cx * TILE_SIZE, r.cy * TILE_SIZE);
         }
-        if (Math.random() < 0.5) spawnItem(r.cx * TILE_SIZE, r.cy * TILE_SIZE);
-    }
 
-    logEvent(`Entered Floor ${player.floor}`);
-    updateHUD();
+        logEvent(`Entered Floor ${player.floor}`);
+        updateHUD();
+    }
 }
 
 function carveRoom(r) {
@@ -355,9 +445,8 @@ function spawnExitPortal(x, z) {
     exitPortal = { mesh, x, z };
 }
 
-// --- GAMEPLAY LOOP & COMBAT ---
 function performAttack() {
-    if (player.attackCooldown > 0 || !isGameRunning) return;
+    if (player.attackCooldown > 0 || gameState !== 'PLAYING') return;
     player.attackCooldown = 0.35;
     slashMesh.material.opacity = 0.85;
 
@@ -371,13 +460,15 @@ function performAttack() {
         if (dist <= attackRange + e.radius) {
             e.hp -= player.atk;
             e.hitFlash = 0.15;
-            moveEntityWithCollision(e, (dx / dist) * 0.5, (dz / dist) * 0.5);
+            moveEntityWithCollision(e, (dx / (dist || 1)) * 0.5, (dz / (dist || 1)) * 0.5);
             spawnParticles(e.x, 0.8, e.z, 0xef4444, 5);
 
             if (e.hp <= 0) {
                 entityGroup.remove(e.mesh);
                 enemies.splice(i, 1);
                 player.kills++;
+                totalKills++;
+                localStorage.setItem('ember_total_kills', totalKills.toString());
                 updateHUD();
                 if (Math.random() < 0.25) spawnItem(e.x, e.z);
             }
@@ -410,10 +501,24 @@ function spawnParticles(x, y, z, color, count) {
 }
 
 function update(dt) {
-    if (!isGameRunning) return;
+    if (gameState === 'MENU') {
+        const t = clock.elapsedTime * 0.45;
+        torchLight.position.set(player.x, 3.0, player.z);
+        camera.position.set(player.x + Math.cos(t) * 9, 9, player.z + Math.sin(t) * 9);
+        camera.lookAt(player.x, 0.8, player.z);
+        player.mesh.rotation.y = -t;
+        return;
+    }
 
-    // Joystick movement processing
-    if (joystickState.active && (joystickState.moveX !== 0 || joystickState.moveY !== 0)) {
+    if (gameState !== 'PLAYING') return;
+
+    // Continuous attack if holding down the attack button
+    if (isAttackHolding) {
+        performAttack();
+    }
+
+    // Joystick Movement (Works independently alongside attack button)
+    if (joystickState.touchId !== null && (joystickState.moveX !== 0 || joystickState.moveY !== 0)) {
         const moveX = joystickState.moveX * player.speed * dt;
         const moveZ = joystickState.moveY * player.speed * dt;
         moveEntityWithCollision(player, moveX, moveZ, 0.4);
@@ -429,12 +534,10 @@ function update(dt) {
 
     torchLight.position.set(player.x, 2.8, player.z);
     
-    // Smooth Camera Follow
     const camTarget = new THREE.Vector3(player.x, 13.5, player.z + 10);
     camera.position.lerp(camTarget, 0.12);
     camera.lookAt(player.x, 0.5, player.z);
 
-    // Enemy AI logic
     for (const e of enemies) {
         if (e.hitFlash > 0) { e.hitFlash -= dt; e.mesh.material.emissive.setHex(0xffffff); }
         else e.mesh.material.emissive.setHex(0x000000);
@@ -455,36 +558,37 @@ function update(dt) {
             e.attackCooldown = 1.0;
             spawnParticles(player.x, 1.0, player.z, 0xef4444, 6);
             updateHUD();
-            if (player.hp <= 0) { gameOver(); return; }
+            if (player.hp <= 0) { triggerGameOver(); return; }
         }
         e.mesh.position.set(e.x, e.mesh.position.y, e.z);
     }
 
-    // Item Collection
     for (let i = items.length - 1; i >= 0; i--) {
         const item = items[i];
         item.mesh.rotation.y += dt * 2;
         if (Math.hypot(player.x - item.x, player.z - item.z) < 1.0) {
             if (item.type === 'heal') { player.hp = Math.min(player.maxHp, player.hp + 30); logEvent("Potion (+30 HP)"); }
             else if (item.type === 'atk') { player.atk += 4; logEvent("Whetstone (+4 ATK)"); }
-            else if (item.type === 'spd') { player.speed = Math.min(10, player.speed + 0.4); logEvent("Swift Boots"); }
+            else if (item.type === 'spd') { player.speed = Math.min(10.5, player.speed + 0.4); logEvent("Swift Boots (+0.4 SPD)"); }
             entityGroup.remove(item.mesh);
             items.splice(i, 1);
             updateHUD();
         }
     }
 
-    // Portal Exit
     if (exitPortal) {
         exitPortal.mesh.rotation.z += dt * 2;
         if (Math.hypot(player.x - exitPortal.x, player.z - exitPortal.z) < 1.1) {
             player.floor++;
+            if (player.floor > bestFloor) {
+                bestFloor = player.floor;
+                localStorage.setItem('ember_best_floor', bestFloor.toString());
+            }
             player.hp = Math.min(player.maxHp, player.hp + 15);
-            generateDungeon();
+            generateDungeon(false);
         }
     }
 
-    // Particles
     for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
         p.life -= dt;
@@ -500,61 +604,145 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// --- TOUCH CONTROLS HANDLER ---
-function setupTouchControls() {
+function startRun() {
+    const cfg = CLASSES[selectedClass];
+    player.maxHp = cfg.hp;
+    player.hp = cfg.hp;
+    player.atk = cfg.atk;
+    player.speed = cfg.speed;
+    player.bodyMesh.material.color.setHex(cfg.color);
+    player.kills = 0;
+    player.floor = 1;
+
+    document.getElementById('start-menu').style.display = 'none';
+    document.getElementById('gameover-menu').style.display = 'none';
+    document.getElementById('hud').style.display = 'flex';
+    document.getElementById('virtual-joystick').style.display = 'block';
+    document.getElementById('attack-btn').style.display = 'flex';
+
+    generateDungeon(false);
+    gameState = 'PLAYING';
+}
+
+function triggerGameOver() {
+    gameState = 'GAMEOVER';
+    joystickState.touchId = null;
+    joystickState.moveX = 0;
+    joystickState.moveY = 0;
+    isAttackHolding = false;
+    document.getElementById('joystick-thumb').style.transform = 'translate(0px, 0px)';
+
+    document.getElementById('hud').style.display = 'none';
+    document.getElementById('virtual-joystick').style.display = 'none';
+    document.getElementById('attack-btn').style.display = 'none';
+
+    document.getElementById('gameover-stats').innerHTML = `Reached <b>Floor ${player.floor}</b><br>Slayed <b>${player.kills}</b> Monsters`;
+    document.getElementById('gameover-menu').style.display = 'flex';
+}
+
+function returnToMainMenu() {
+    gameState = 'MENU';
+    updateRecordBanner();
+    document.getElementById('gameover-menu').style.display = 'none';
+    document.getElementById('start-menu').style.display = 'flex';
+    generateDungeon(true);
+}
+
+// --- MULTI-TOUCH & UI HANDLERS ---
+function setupUIAndTouch() {
+    const cards = document.querySelectorAll('.class-card');
+    cards.forEach(card => {
+        card.addEventListener('click', () => {
+            cards.forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            selectedClass = card.getAttribute('data-class');
+            player.bodyMesh.material.color.setHex(CLASSES[selectedClass].color);
+        });
+    });
+
+    document.getElementById('start-run-btn').addEventListener('click', startRun);
+    document.getElementById('retry-btn').addEventListener('click', startRun);
+    document.getElementById('menu-return-btn').addEventListener('click', returnToMainMenu);
+
     const joystickArea = document.getElementById('virtual-joystick');
     const thumb = document.getElementById('joystick-thumb');
 
+    // 1. Lock onto the exact finger ID that touches the joystick
     joystickArea.addEventListener('touchstart', e => {
         e.preventDefault();
-        const touch = e.targetTouches[0];
-        joystickState.active = true;
+        if (joystickState.touchId !== null) return; // Ignore extra fingers on joystick
+
+        const touch = e.changedTouches[0];
+        joystickState.touchId = touch.identifier;
+
         const rect = joystickArea.getBoundingClientRect();
         joystickState.startX = rect.left + rect.width / 2;
         joystickState.startY = rect.top + rect.height / 2;
+
+        updateJoystickPosition(touch.clientX, touch.clientY, thumb);
     }, { passive: false });
 
+    // 2. Track ONLY the joystick finger across the screen
     window.addEventListener('touchmove', e => {
-        if (!joystickState.active) return;
-        e.preventDefault();
-        const touch = e.targetTouches[0];
-        const dx = touch.clientX - joystickState.startX;
-        const dy = touch.clientY - joystickState.startY;
-        const dist = Math.hypot(dx, dy);
-        const maxDist = 40;
-
-        const angle = Math.atan2(dy, dx);
-        const clampedDist = Math.min(dist, maxDist);
-        
-        thumb.style.transform = `translate(${Math.cos(angle) * clampedDist}px, ${Math.sin(angle) * clampedDist}px)`;
-        
-        joystickState.moveX = (Math.cos(angle) * clampedDist) / maxDist;
-        joystickState.moveY = (Math.sin(angle) * clampedDist) / maxDist;
+        if (joystickState.touchId === null) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const touch = e.changedTouches[i];
+            if (touch.identifier === joystickState.touchId) {
+                e.preventDefault();
+                updateJoystickPosition(touch.clientX, touch.clientY, thumb);
+                break;
+            }
+        }
     }, { passive: false });
 
-    const endJoystick = () => {
-        if (!joystickState.active) return;
-        joystickState.active = false;
-        joystickState.moveX = 0;
-        joystickState.moveY = 0;
-        thumb.style.transform = `translate(0px, 0px)`;
+    // 3. Release joystick ONLY when that specific finger lifts up
+    const handleJoystickEnd = (e) => {
+        if (joystickState.touchId === null) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === joystickState.touchId) {
+                joystickState.touchId = null;
+                joystickState.moveX = 0;
+                joystickState.moveY = 0;
+                thumb.style.transform = 'translate(0px, 0px)';
+                break;
+            }
+        }
     };
 
-    window.addEventListener('touchend', endJoystick);
-    window.addEventListener('touchcancel', endJoystick);
+    window.addEventListener('touchend', handleJoystickEnd);
+    window.addEventListener('touchcancel', handleJoystickEnd);
 
-    document.getElementById('attack-btn').addEventListener('touchstart', e => {
+    // 4. Independent Attack Button (supports both quick taps and holding down)
+    const attackBtn = document.getElementById('attack-btn');
+    attackBtn.addEventListener('touchstart', e => {
         e.preventDefault();
+        isAttackHolding = true;
+        attackBtn.classList.add('pressed');
         performAttack();
     }, { passive: false });
 
-    document.getElementById('start-btn').addEventListener('click', () => {
-        document.getElementById('overlay').style.display = 'none';
-        document.getElementById('virtual-joystick').style.display = 'block';
-        player.hp = 100; player.maxHp = 100; player.atk = 20; player.speed = 7.0; player.kills = 0; player.floor = 1;
-        generateDungeon();
-        isGameRunning = true;
-    });
+    const releaseAttack = (e) => {
+        e.preventDefault();
+        isAttackHolding = false;
+        attackBtn.classList.remove('pressed');
+    };
+
+    attackBtn.addEventListener('touchend', releaseAttack);
+    attackBtn.addEventListener('touchcancel', releaseAttack);
+}
+
+function updateJoystickPosition(clientX, clientY, thumb) {
+    const dx = clientX - joystickState.startX;
+    const dy = clientY - joystickState.startY;
+    const dist = Math.hypot(dx, dy);
+    const maxDist = 42;
+
+    const angle = Math.atan2(dy, dx);
+    const clampedDist = Math.min(dist, maxDist);
+
+    thumb.style.transform = `translate(${Math.cos(angle) * clampedDist}px, ${Math.sin(angle) * clampedDist}px)`;
+    joystickState.moveX = (Math.cos(angle) * clampedDist) / maxDist;
+    joystickState.moveY = (Math.sin(angle) * clampedDist) / maxDist;
 }
 
 function updateHUD() {
@@ -573,16 +761,6 @@ function logEvent(text) {
     div.innerText = text;
     log.appendChild(div);
     setTimeout(() => div.remove(), 3000);
-}
-
-function gameOver() {
-    isGameRunning = false;
-    document.getElementById('virtual-joystick').style.display = 'none';
-    const overlay = document.getElementById('overlay');
-    document.getElementById('overlay-title').innerText = "YOU PERISHED";
-    document.getElementById('overlay-desc').innerText = `Fell on Floor ${player.floor} after slaying ${player.kills} monsters.`;
-    document.getElementById('start-btn').innerText = "TRY AGAIN";
-    overlay.style.display = 'flex';
 }
 
 function onWindowResize() {
