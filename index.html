@@ -25,12 +25,12 @@
         .floor-badge { color: #fbbf24; font-size: 16px; letter-spacing: 1px; font-weight: bold; }
 
         #pause-btn {
-            background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.25);
-            color: #fff; width: 40px; height: 40px; border-radius: 10px; font-size: 18px;
+            background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.25);
+            color: #fff; width: 44px; height: 44px; border-radius: 10px; font-size: 18px;
             display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: auto;
             transition: background 0.15s;
         }
-        #pause-btn:active { background: rgba(255, 255, 255, 0.25); }
+        #pause-btn:active { background: rgba(255, 255, 255, 0.28); transform: scale(0.94); }
 
         /* Floating Event Log */
         #log {
@@ -542,9 +542,7 @@ function update(dt) {
         return;
     }
 
-    if (gameState === 'PAUSED') return; // Freeze simulation when paused
-
-    if (gameState !== 'PLAYING') return;
+    if (gameState === 'PAUSED' || gameState !== 'PLAYING') return;
 
     if (moveState.touchId !== null && (moveState.x !== 0 || moveState.y !== 0)) {
         const moveX = moveState.x * player.speed * dt;
@@ -727,8 +725,15 @@ function setupUIAndTouch() {
     document.getElementById('retry-btn').addEventListener('click', startRun);
     document.getElementById('menu-return-btn').addEventListener('click', returnToMainMenu);
     
-    // Pause Menu Listeners
-    document.getElementById('pause-btn').addEventListener('click', togglePause);
+    // Pause Menu Listeners (Handle both touch and mouse clicks cleanly)
+    const pauseBtn = document.getElementById('pause-btn');
+    pauseBtn.addEventListener('touchstart', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        togglePause();
+    }, { passive: false });
+    pauseBtn.addEventListener('click', togglePause);
+
     document.getElementById('resume-btn').addEventListener('click', resumeRun);
     document.getElementById('quit-btn').addEventListener('click', quitToMainMenu);
 
@@ -739,6 +744,9 @@ function setupUIAndTouch() {
 
     window.addEventListener('touchstart', e => {
         if (gameState !== 'PLAYING') return;
+        // Ignore touches that land on UI buttons (such as the Pause button)
+        if (e.target.closest('button')) return;
+
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
             const isLeft = touch.clientX < window.innerWidth / 2;
