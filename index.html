@@ -31,23 +31,20 @@
         .log-msg { background: rgba(0,0,0,0.65); padding: 4px 8px; border-radius: 4px; animation: fadeOut 3s forwards; }
         @keyframes fadeOut { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
 
-        /* --- MOBILE TOUCH CONTROLS --- */
-        #virtual-joystick {
-            position: absolute; bottom: 30px; left: 30px; width: 130px; height: 130px;
-            background: rgba(255, 255, 255, 0.06); border: 2px solid rgba(255, 255, 255, 0.22);
+        /* --- MOBILE TOUCH CONTROLS (TWIN-STICK) --- */
+        .joystick-base {
+            position: absolute; bottom: 30px; width: 130px; height: 130px;
+            background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.2);
             border-radius: 50%; pointer-events: auto; display: none;
         }
-        #joystick-thumb {
+        #left-joystick { left: 30px; }
+        #right-attack-pad { right: 30px; border-color: rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.05); }
+
+        .joystick-thumb {
             position: absolute; top: 40px; left: 40px; width: 50px; height: 50px;
-            background: rgba(255, 255, 255, 0.45); border-radius: 50%; pointer-events: none;
+            background: rgba(255, 255, 255, 0.4); border-radius: 50%; pointer-events: none;
         }
-        #attack-btn {
-            position: absolute; bottom: 35px; right: 35px; width: 95px; height: 95px;
-            background: rgba(220, 38, 38, 0.85); border: 3px solid #f87171; border-radius: 50%;
-            display: none; align-items: center; justify-content: center; font-size: 32px;
-            box-shadow: 0 4px 18px rgba(220, 38, 38, 0.45); cursor: pointer; pointer-events: auto;
-        }
-        #attack-btn:active, #attack-btn.pressed { background: #ef4444; transform: scale(0.92); }
+        #right-attack-pad .joystick-thumb { background: rgba(239, 68, 68, 0.6); }
 
         /* --- STARTING MAIN MENU SCREEN --- */
         #start-menu {
@@ -134,9 +131,9 @@
 
     <div id="log"></div>
 
-    <!-- MOBILE TOUCH CONTROLS -->
-    <div id="virtual-joystick"><div id="joystick-thumb"></div></div>
-    <div id="attack-btn">⚔️</div>
+    <!-- MOBILE TWIN-STICK CONTROLS -->
+    <div id="left-joystick" class="joystick-base"><div class="joystick-thumb" id="left-thumb"></div></div>
+    <div id="right-attack-pad" class="joystick-base"><div class="joystick-thumb" id="right-thumb"></div></div>
 
     <!-- STARTING MAIN MENU -->
     <div id="start-menu">
@@ -164,7 +161,7 @@
         </div>
 
         <button class="primary-btn" id="start-run-btn">Start Run</button>
-        <div class="controls-note">Left thumb drag to move & aim • Right button to slash • Enter purple portals to descend</div>
+        <div class="controls-note">Left stick: Move • Right stick: Aim & Swing sword independently • Portals: Descend</div>
     </div>
 
     <!-- GAME OVER SCREEN -->
@@ -213,9 +210,9 @@ let items = [];
 let particles = [];
 let exitPortal = null;
 
-// Multi-Touch Input State (Tracks specific finger IDs)
-const joystickState = { touchId: null, startX: 0, startY: 0, moveX: 0, moveY: 0 };
-let isAttackHolding = false;
+// Twin-Stick Multi-Touch Input State
+const moveState = { touchId: null, startX: 0, startY: 0, x: 0, y: 0 };
+const attackState = { touchId: null, startX: 0, startY: 0, x: 0, y: 0, active: false };
 
 let bestFloor = parseInt(localStorage.getItem('ember_best_floor') || '1', 10);
 let totalKills = parseInt(localStorage.getItem('ember_total_kills') || '0', 10);
@@ -447,7 +444,7 @@ function spawnExitPortal(x, z) {
 
 function performAttack() {
     if (player.attackCooldown > 0 || gameState !== 'PLAYING') return;
-    player.attackCooldown = 0.35;
+    player.attackCooldown = 0.32;
     slashMesh.material.opacity = 0.85;
 
     const attackRange = 2.6;
@@ -458,19 +455,27 @@ function performAttack() {
         const dist = Math.hypot(dx, dz);
 
         if (dist <= attackRange + e.radius) {
-            e.hp -= player.atk;
-            e.hitFlash = 0.15;
-            moveEntityWithCollision(e, (dx / (dist || 1)) * 0.5, (dz / (dist || 1)) * 0.5);
-            spawnParticles(e.x, 0.8, e.z, 0xef4444, 5);
+            const angleToEnemy = Math.atan2(dx, dz);
+            let angleDiff = angleToEnemy - player.angle;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
 
-            if (e.hp <= 0) {
-                entityGroup.remove(e.mesh);
-                enemies.splice(i, 1);
-                player.kills++;
-                totalKills++;
-                localStorage.setItem('ember_total_kills', totalKills.toString());
-                updateHUD();
-                if (Math.random() < 0.25) spawnItem(e.x, e.z);
+            // Generous 120-degree attack arc based on where the player is currently aiming
+            if (Math.abs(angleDiff) <= Math.PI * 0.65) {
+                e.hp -= player.atk;
+                e.hitFlash = 0.15;
+                moveEntityWithCollision(e, (dx / (dist || 1)) * 0.5, (dz / (dist || 1)) * 0.5);
+                spawnParticles(e.x, 0.8, e.z, 0xef4444, 5);
+
+                if (e.hp <= 0) {
+                    entityGroup.remove(e.mesh);
+                    enemies.splice(i, 1);
+                    player.kills++;
+                    totalKills++;
+                    localStorage.setItem('ember_total_kills', totalKills.toString());
+                    updateHUD();
+                    if (Math.random() < 0.25) spawnItem(e.x, e.z);
+                }
             }
         }
     }
@@ -512,18 +517,18 @@ function update(dt) {
 
     if (gameState !== 'PLAYING') return;
 
-    // Continuous attack if holding down the attack button
-    if (isAttackHolding) {
-        performAttack();
+    // 1. Left Joystick Movement
+    if (moveState.touchId !== null && (moveState.x !== 0 || moveState.y !== 0)) {
+        const moveX = moveState.x * player.speed * dt;
+        const moveZ = moveState.y * player.speed * dt;
+        moveEntityWithCollision(player, moveX, moveZ, 0.4);
     }
 
-    // Joystick Movement (Works independently alongside attack button)
-    if (joystickState.touchId !== null && (joystickState.moveX !== 0 || joystickState.moveY !== 0)) {
-        const moveX = joystickState.moveX * player.speed * dt;
-        const moveZ = joystickState.moveY * player.speed * dt;
-        moveEntityWithCollision(player, moveX, moveZ, 0.4);
-        player.angle = Math.atan2(joystickState.moveX, joystickState.moveY);
+    // 2. Right Attack Pad / Aiming (Independent Directional Attacks)
+    if (attackState.touchId !== null && (attackState.x !== 0 || attackState.y !== 0)) {
+        player.angle = Math.atan2(attackState.x, attackState.y);
         player.mesh.rotation.y = player.angle;
+        performAttack(); // Continuously swing while holding/aiming right stick
     }
 
     player.mesh.position.set(player.x, 0, player.z);
@@ -617,8 +622,8 @@ function startRun() {
     document.getElementById('start-menu').style.display = 'none';
     document.getElementById('gameover-menu').style.display = 'none';
     document.getElementById('hud').style.display = 'flex';
-    document.getElementById('virtual-joystick').style.display = 'block';
-    document.getElementById('attack-btn').style.display = 'flex';
+    document.getElementById('left-joystick').style.display = 'block';
+    document.getElementById('right-attack-pad').style.display = 'block';
 
     generateDungeon(false);
     gameState = 'PLAYING';
@@ -626,15 +631,14 @@ function startRun() {
 
 function triggerGameOver() {
     gameState = 'GAMEOVER';
-    joystickState.touchId = null;
-    joystickState.moveX = 0;
-    joystickState.moveY = 0;
-    isAttackHolding = false;
-    document.getElementById('joystick-thumb').style.transform = 'translate(0px, 0px)';
+    moveState.touchId = null; moveState.x = 0; moveState.y = 0;
+    attackState.touchId = null; attackState.x = 0; attackState.y = 0;
+    document.getElementById('left-thumb').style.transform = 'translate(0px, 0px)';
+    document.getElementById('right-thumb').style.transform = 'translate(0px, 0px)';
 
     document.getElementById('hud').style.display = 'none';
-    document.getElementById('virtual-joystick').style.display = 'none';
-    document.getElementById('attack-btn').style.display = 'none';
+    document.getElementById('left-joystick').style.display = 'none';
+    document.getElementById('right-attack-pad').style.display = 'none';
 
     document.getElementById('gameover-stats').innerHTML = `Reached <b>Floor ${player.floor}</b><br>Slayed <b>${player.kills}</b> Monsters`;
     document.getElementById('gameover-menu').style.display = 'flex';
@@ -648,7 +652,7 @@ function returnToMainMenu() {
     generateDungeon(true);
 }
 
-// --- MULTI-TOUCH & UI HANDLERS ---
+// --- TWIN-STICK MULTI-TOUCH HANDLERS ---
 function setupUIAndTouch() {
     const cards = document.querySelectorAll('.class-card');
     cards.forEach(card => {
@@ -664,85 +668,86 @@ function setupUIAndTouch() {
     document.getElementById('retry-btn').addEventListener('click', startRun);
     document.getElementById('menu-return-btn').addEventListener('click', returnToMainMenu);
 
-    const joystickArea = document.getElementById('virtual-joystick');
-    const thumb = document.getElementById('joystick-thumb');
+    const leftStick = document.getElementById('left-joystick');
+    const leftThumb = document.getElementById('left-thumb');
+    const rightPad = document.getElementById('right-attack-pad');
+    const rightThumb = document.getElementById('right-thumb');
 
-    // 1. Lock onto the exact finger ID that touches the joystick
-    joystickArea.addEventListener('touchstart', e => {
-        e.preventDefault();
-        if (joystickState.touchId !== null) return; // Ignore extra fingers on joystick
-
-        const touch = e.changedTouches[0];
-        joystickState.touchId = touch.identifier;
-
-        const rect = joystickArea.getBoundingClientRect();
-        joystickState.startX = rect.left + rect.width / 2;
-        joystickState.startY = rect.top + rect.height / 2;
-
-        updateJoystickPosition(touch.clientX, touch.clientY, thumb);
-    }, { passive: false });
-
-    // 2. Track ONLY the joystick finger across the screen
-    window.addEventListener('touchmove', e => {
-        if (joystickState.touchId === null) return;
+    // Touch Start
+    window.addEventListener('touchstart', e => {
+        if (gameState !== 'PLAYING') return;
         for (let i = 0; i < e.changedTouches.length; i++) {
             const touch = e.changedTouches[i];
-            if (touch.identifier === joystickState.touchId) {
+            const isLeft = touch.clientX < window.innerWidth / 2;
+
+            if (isLeft && moveState.touchId === null) {
                 e.preventDefault();
-                updateJoystickPosition(touch.clientX, touch.clientY, thumb);
-                break;
+                moveState.touchId = touch.identifier;
+                const rect = leftStick.getBoundingClientRect();
+                moveState.startX = rect.left + rect.width / 2;
+                moveState.startY = rect.top + rect.height / 2;
+                updateStick(touch, moveState, leftThumb);
+            } else if (!isLeft && attackState.touchId === null) {
+                e.preventDefault();
+                attackState.touchId = touch.identifier;
+                const rect = rightPad.getBoundingClientRect();
+                attackState.startX = rect.left + rect.width / 2;
+                attackState.startY = rect.top + rect.height / 2;
+                updateStick(touch, attackState, rightThumb);
+                performAttack(); // Instant slash on tap
             }
         }
     }, { passive: false });
 
-    // 3. Release joystick ONLY when that specific finger lifts up
-    const handleJoystickEnd = (e) => {
-        if (joystickState.touchId === null) return;
+    // Touch Move
+    window.addEventListener('touchmove', e => {
+        if (gameState !== 'PLAYING') return;
         for (let i = 0; i < e.changedTouches.length; i++) {
-            if (e.changedTouches[i].identifier === joystickState.touchId) {
-                joystickState.touchId = null;
-                joystickState.moveX = 0;
-                joystickState.moveY = 0;
-                thumb.style.transform = 'translate(0px, 0px)';
-                break;
+            const touch = e.changedTouches[i];
+            if (touch.identifier === moveState.touchId) {
+                e.preventDefault();
+                updateStick(touch, moveState, leftThumb);
+            } else if (touch.identifier === attackState.touchId) {
+                e.preventDefault();
+                updateStick(touch, attackState, rightThumb);
+            }
+        }
+    }, { passive: false });
+
+    // Touch End / Cancel
+    const handleTouchEnd = (e) => {
+        if (gameState !== 'PLAYING') return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+            const id = e.changedTouches[i].identifier;
+            if (id === moveState.touchId) {
+                moveState.touchId = null;
+                moveState.x = 0; moveState.y = 0;
+                leftThumb.style.transform = 'translate(0px, 0px)';
+            }
+            if (id === attackState.touchId) {
+                attackState.touchId = null;
+                attackState.x = 0; attackState.y = 0;
+                rightThumb.style.transform = 'translate(0px, 0px)';
             }
         }
     };
 
-    window.addEventListener('touchend', handleJoystickEnd);
-    window.addEventListener('touchcancel', handleJoystickEnd);
-
-    // 4. Independent Attack Button (supports both quick taps and holding down)
-    const attackBtn = document.getElementById('attack-btn');
-    attackBtn.addEventListener('touchstart', e => {
-        e.preventDefault();
-        isAttackHolding = true;
-        attackBtn.classList.add('pressed');
-        performAttack();
-    }, { passive: false });
-
-    const releaseAttack = (e) => {
-        e.preventDefault();
-        isAttackHolding = false;
-        attackBtn.classList.remove('pressed');
-    };
-
-    attackBtn.addEventListener('touchend', releaseAttack);
-    attackBtn.addEventListener('touchcancel', releaseAttack);
+    window.addEventListener('touchend', handleTouchEnd);
+    window.addEventListener('touchcancel', handleTouchEnd);
 }
 
-function updateJoystickPosition(clientX, clientY, thumb) {
-    const dx = clientX - joystickState.startX;
-    const dy = clientY - joystickState.startY;
+function updateStick(touch, state, thumbElement) {
+    const dx = touch.clientX - state.startX;
+    const dy = touch.clientY - state.startY;
     const dist = Math.hypot(dx, dy);
     const maxDist = 42;
 
     const angle = Math.atan2(dy, dx);
     const clampedDist = Math.min(dist, maxDist);
 
-    thumb.style.transform = `translate(${Math.cos(angle) * clampedDist}px, ${Math.sin(angle) * clampedDist}px)`;
-    joystickState.moveX = (Math.cos(angle) * clampedDist) / maxDist;
-    joystickState.moveY = (Math.sin(angle) * clampedDist) / maxDist;
+    thumbElement.style.transform = `translate(${Math.cos(angle) * clampedDist}px, ${Math.sin(angle) * clampedDist}px)`;
+    state.x = (Math.cos(angle) * clampedDist) / maxDist;
+    state.y = (Math.sin(angle) * clampedDist) / maxDist;
 }
 
 function updateHUD() {
